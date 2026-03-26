@@ -1,0 +1,11 @@
+.git
+.github
+.vscode
+target
+logs
+certs
+docs
+examples
+deploy
+README.md
+config.yaml

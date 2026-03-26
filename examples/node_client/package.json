@@ -1,0 +1,14 @@
+{
+  "name": "multi-ds-manager-node-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node.js gRPC client example for multi-ds-manager",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node client.js"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/proto-loader": "^0.7.15"
+  }
+}

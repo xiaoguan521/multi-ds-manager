@@ -1,0 +1,47 @@
+services:
+  multi-ds-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multi-ds-manager:local
+    restart: unless-stopped
+    environment:
+      MULTI_DS_CONFIG: /app/config/config.yaml
+      MULTI_DS_NATIVE_BRIDGE_SCRIPT: /app/scripts/native_query_bridge.py
+      MULTI_DS_PYTHON_BIN: python3
+      RUST_LOG: ${RUST_LOG:-info}
+      BOOTSTRAP_AUTH_TOKEN: ${BOOTSTRAP_AUTH_TOKEN:-bootstrap-secret}
+      GRPC_ADVERTISED_ADDR: ${GRPC_ADVERTISED_ADDR:-multi-ds-manager:50051}
+      KINGBASE_URL: ${KINGBASE_URL:-postgres://demo:demo@host.docker.internal:54321/demo}
+      ORACLE_URL: ${ORACLE_URL:-oracle://demo:demo@host.docker.internal:1521/ORCL}
+      DM_URL: ${DM_URL:-dm://demo:demo@host.docker.internal:5236/DEMO}
+    ports:
+      - "50051:50051"
+      - "9095:9095"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./config.example.yaml:/app/config/config.yaml:ro
+      - ./logs:/app/logs
+      - ./certs:/app/certs:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:9095/metrics', timeout=3).read()\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    depends_on:
+      multi-ds-manager:
+        condition: service_healthy
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/compose/prometheus.yml:/etc/prometheus/prometheus.yml:ro

@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi-ds-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multi-ds-manager
+  template:
+    metadata:
+      labels:
+        app: multi-ds-manager
+    spec:
+      containers:
+        - name: multi-ds-manager
+          image: ghcr.io/your-org/multi-ds-manager:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50051
+            - name: metrics
+              containerPort: 9095
+          env:
+            - name: MULTI_DS_CONFIG
+              value: /app/config/config.yaml
+            - name: MULTI_DS_NATIVE_BRIDGE_SCRIPT
+              value: /app/scripts/native_query_bridge.py
+            - name: MULTI_DS_PYTHON_BIN
+              value: python3
+            - name: RUST_LOG
+              value: info
+          envFrom:
+            - secretRef:
+                name: multi-ds-manager-secrets
+                optional: true
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: grpc-tls
+              mountPath: /app/certs
+              readOnly: true
+            - name: logs
+              mountPath: /app/logs
+          readinessProbe:
+            grpc:
+              port: 50051
+              service: multi_ds.grpc.v1.DynamicDataSource
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            grpc:
+              port: 50051
+              service: multi_ds.grpc.v1.DynamicDataSource
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 10001
+      volumes:
+        - name: config
+          configMap:
+            name: multi-ds-manager-config
+        - name: grpc-tls
+          secret:
+            secretName: multi-ds-manager-grpc-tls
+            optional: true
+        - name: logs
+          emptyDir: {}

@@ -1,0 +1,63 @@
+audit:
+  enabled: ${AUDIT_ENABLED:-true}
+  path: "${AUDIT_PATH:-/app/logs/audit.jsonl}"
+
+monitoring:
+  enabled: ${MONITORING_ENABLED:-true}
+  listen_addr: "${MONITORING_LISTEN_ADDR:-0.0.0.0:9095}"
+  metrics_path: "${MONITORING_METRICS_PATH:-/metrics}"
+
+grpc:
+  enabled: true
+  service_name: "${GRPC_SERVICE_NAME:-multi-ds-manager}"
+  listen_addr: "${GRPC_LISTEN_ADDR:-0.0.0.0:50051}"
+  advertised_addr: "${GRPC_ADVERTISED_ADDR:-multi-ds-manager:50051}"
+  health_enabled: ${GRPC_HEALTH_ENABLED:-true}
+  reflection_enabled: ${GRPC_REFLECTION_ENABLED:-false}
+  tls:
+    enabled: ${GRPC_TLS_ENABLED:-false}
+    cert_path: "${GRPC_TLS_CERT_PATH:-/app/certs/tls.crt}"
+    key_path: "${GRPC_TLS_KEY_PATH:-/app/certs/tls.key}"
+    client_ca_cert_path: null
+    client_auth_optional: ${GRPC_TLS_CLIENT_AUTH_OPTIONAL:-false}
+  registration:
+    enabled: ${GRPC_REGISTRATION_ENABLED:-true}
+    path: "${GRPC_REGISTRATION_PATH:-/app/logs/grpc-service.json}"
+
+callers:
+  - caller_id: "${BOOTSTRAP_CALLER_ID:-bootstrap-client}"
+    auth_token: "${BOOTSTRAP_AUTH_TOKEN:-bootstrap-secret}"
+    enabled: true
+    allowed_operations: ["query", "execute", "procedure"]
+    allowed_jgbhs: ["320101", "330100", "340100"]
+
+common_datasources:
+  - name: "DM"
+    db_type: "dm"
+    jgbhs: ["320101"]
+    url: "${DM_URL:-dm://demo:demo@host.docker.internal:5236/DEMO}"
+    test_sql: "SELECT 1 AS test"
+    read_only: ${DM_READ_ONLY:-true}
+    allow_procedures: ${DM_ALLOW_PROCEDURES:-false}
+    max_rows: 200
+    timeout_ms: 5000
+
+  - name: "oracle"
+    db_type: "oracle"
+    jgbhs: ["330100"]
+    url: "${ORACLE_URL:-oracle://demo:demo@host.docker.internal:1521/ORCL}"
+    test_sql: "SELECT 1 FROM DUAL"
+    read_only: ${ORACLE_READ_ONLY:-true}
+    allow_procedures: ${ORACLE_ALLOW_PROCEDURES:-false}
+    max_rows: 200
+    timeout_ms: 5000
+
+  - name: "Kingbase"
+    db_type: "kingbase"
+    jgbhs: ["340100"]
+    url: "${KINGBASE_URL:-postgres://demo:demo@host.docker.internal:54321/demo}"
+    test_sql: "SELECT 1 AS test"
+    read_only: ${KINGBASE_READ_ONLY:-true}
+    allow_procedures: ${KINGBASE_ALLOW_PROCEDURES:-false}
+    max_rows: 200
+    timeout_ms: 5000

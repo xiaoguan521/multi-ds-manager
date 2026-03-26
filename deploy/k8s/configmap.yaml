@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multi-ds-manager-config
+data:
+  config.yaml: |
+    audit:
+      enabled: true
+      path: "/app/logs/audit.jsonl"
+
+    monitoring:
+      enabled: true
+      listen_addr: "0.0.0.0:9095"
+      metrics_path: "/metrics"
+
+    grpc:
+      enabled: true
+      service_name: "multi-ds-manager"
+      listen_addr: "0.0.0.0:50051"
+      advertised_addr: "multi-ds-manager:50051"
+      health_enabled: true
+      reflection_enabled: false
+      tls:
+        enabled: ${GRPC_TLS_ENABLED:-false}
+        cert_path: "/app/certs/tls.crt"
+        key_path: "/app/certs/tls.key"
+        client_ca_cert_path: null
+        client_auth_optional: false
+      registration:
+        enabled: true
+        path: "/app/logs/grpc-service.json"
+
+    callers:
+      - caller_id: "bootstrap-client"
+        auth_token: "${BOOTSTRAP_AUTH_TOKEN:-bootstrap-secret}"
+        enabled: true
+        allowed_operations: ["query", "execute", "procedure"]
+        allowed_jgbhs: ["320101", "330100", "340100"]
+
+    common_datasources:
+      - name: "DM"
+        db_type: "dm"
+        jgbhs: ["320101"]
+        url: "${DM_URL:-dm://demo:demo@dm-host:5236/DEMO}"
+        test_sql: "SELECT 1 AS test"
+        read_only: true
+        allow_procedures: false
+        max_rows: 200
+        timeout_ms: 5000
+
+      - name: "oracle"
+        db_type: "oracle"
+        jgbhs: ["330100"]
+        url: "${ORACLE_URL:-oracle://demo:demo@oracle-host:1521/ORCL}"
+        test_sql: "SELECT 1 FROM DUAL"
+        read_only: true
+        allow_procedures: false
+        max_rows: 200
+        timeout_ms: 5000
+
+      - name: "Kingbase"
+        db_type: "kingbase"
+        jgbhs: ["340100"]
+        url: "${KINGBASE_URL:-postgres://demo:demo@kingbase-host:54321/demo}"
+        test_sql: "SELECT 1 AS test"
+        read_only: true
+        allow_procedures: false
+        max_rows: 200
+        timeout_ms: 5000

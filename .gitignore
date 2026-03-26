@@ -1,0 +1,28 @@
+# Rust build artifacts
+/target/
+
+# Local runtime state
+/logs/
+/certs/
+
+# Local configuration and secrets
+/config.yaml
+/.env
+/.env.*
+
+# Editor and IDE files
+/.vscode/
+/.idea/
+
+# Python cache for native bridge tooling
+__pycache__/
+*.py[cod]
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local test and temp artifacts
+*.tmp
+*.temp
