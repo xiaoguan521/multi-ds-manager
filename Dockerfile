@@ -18,9 +18,11 @@ RUN cargo build --release
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libssl3 python3 python3-pip \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip3 install --no-cache-dir oracledb
+    && apt-get install -y --no-install-recommends ca-certificates libssl3 python3 python3-venv \
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir oracledb \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -34,7 +36,8 @@ COPY config.example.yaml /app/config/config.yaml
 
 ENV MULTI_DS_CONFIG=/app/config/config.yaml \
     MULTI_DS_NATIVE_BRIDGE_SCRIPT=/app/scripts/native_query_bridge.py \
-    MULTI_DS_PYTHON_BIN=python3 \
+    MULTI_DS_PYTHON_BIN=/opt/venv/bin/python \
+    PATH=/opt/venv/bin:${PATH} \
     PYTHONIOENCODING=utf-8 \
     RUST_LOG=info
 

@@ -27,7 +27,7 @@ spec:
             - name: MULTI_DS_NATIVE_BRIDGE_SCRIPT
               value: /app/scripts/native_query_bridge.py
             - name: MULTI_DS_PYTHON_BIN
-              value: python3
+              value: /opt/venv/bin/python
             - name: RUST_LOG
               value: info
           envFrom:

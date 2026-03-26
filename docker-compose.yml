@@ -8,7 +8,7 @@ services:
     environment:
       MULTI_DS_CONFIG: /app/config/config.yaml
       MULTI_DS_NATIVE_BRIDGE_SCRIPT: /app/scripts/native_query_bridge.py
-      MULTI_DS_PYTHON_BIN: python3
+      MULTI_DS_PYTHON_BIN: /opt/venv/bin/python
       RUST_LOG: ${RUST_LOG:-info}
       BOOTSTRAP_AUTH_TOKEN: ${BOOTSTRAP_AUTH_TOKEN:-bootstrap-secret}
       GRPC_ADVERTISED_ADDR: ${GRPC_ADVERTISED_ADDR:-multi-ds-manager:50051}

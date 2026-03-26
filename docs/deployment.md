@@ -20,6 +20,10 @@ This document captures the Stage G productionization baseline for `multi-ds-mana
 - `MULTI_DS_PYTHON_BIN`: Python executable name, default is `python` on Windows and `python3` on Linux
 - `RUST_LOG`: tracing level
 
+Container default:
+
+- `MULTI_DS_PYTHON_BIN=/opt/venv/bin/python`
+
 ## Docker Build
 
 ```powershell
@@ -31,10 +35,12 @@ The image ships with:
 - the Rust release binary
 - the Python native bridge script
 - Python 3 runtime
+- a dedicated virtual environment at `/opt/venv`
 - `oracledb` Python package for Oracle thin-mode access
 
 Note:
 
+- The runtime image installs `oracledb` into `/opt/venv` instead of the system Python, which avoids Debian Bookworm / PEP 668 `externally-managed-environment` build failures.
 - DM native bridge support usually still requires environment-specific `dmPython` installation, so production DM usage should extend the runtime image with the vendor package your environment provides.
 
 ## GitHub Actions Image Publish
