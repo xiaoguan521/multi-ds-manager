@@ -142,17 +142,17 @@ jobs:
           cache-on-failure: true
 
       - name: Build Binary (Unix)
-        if: matrix.os_name != 'windows'
+        if: ${{ matrix.os_name != 'windows' }}
         shell: bash
         run: cargo build --release --locked --target "${{ matrix.target }}"
 
       - name: Build Binary (Windows)
-        if: matrix.os_name == 'windows'
+        if: ${{ matrix.os_name == 'windows' }}
         shell: pwsh
         run: cargo build --release --locked --target "${{ matrix.target }}"
 
       - name: Package Artifact (Unix)
-        if: matrix.os_name != 'windows'
+        if: ${{ matrix.os_name != 'windows' }}
         id: package_unix
         shell: bash
         env:
@@ -178,7 +178,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Package Artifact (Windows)
-        if: matrix.os_name == 'windows'
+        if: ${{ matrix.os_name == 'windows' }}
         id: package_windows
         shell: pwsh
         env:
@@ -211,7 +211,7 @@ jobs:
           retention-days: 14
 
       - name: Write Job Summary (Unix)
-        if: matrix.os_name != 'windows'
+        if: ${{ matrix.os_name != 'windows' }}
         shell: bash
         env:
           OS_NAME: ${{ matrix.os_name }}
@@ -230,7 +230,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Write Job Summary (Windows)
-        if: matrix.os_name == 'windows'
+        if: ${{ matrix.os_name == 'windows' }}
         shell: pwsh
         env:
           OS_NAME: ${{ matrix.os_name }}
@@ -249,12 +249,12 @@ jobs:
           ) | Add-Content -Path $env:GITHUB_STEP_SUMMARY
 
       - name: Show sccache Stats (Unix)
-        if: always() && matrix.os_name != 'windows'
+        if: ${{ always() && matrix.os_name != 'windows' }}
         shell: bash
         run: "${SCCACHE_PATH:-sccache}" --show-stats || true
 
       - name: Show sccache Stats (Windows)
-        if: always() && matrix.os_name == 'windows'
+        if: ${{ always() && matrix.os_name == 'windows' }}
         shell: pwsh
         run: |
           $sccache = if ($env:SCCACHE_PATH) { $env:SCCACHE_PATH } else { "sccache" }
