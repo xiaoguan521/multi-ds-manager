@@ -203,11 +203,20 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "artifact_path=$archivePath"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "artifact_name=$packageBase.zip"
 
-      - name: Upload Artifact
+      - name: Upload Artifact (Unix)
+        if: ${{ matrix.os_name != 'windows' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os_name }}-${{ matrix.arch_name }}-${{ matrix.target }}
-          path: ${{ matrix.os_name == 'windows' && steps.package_windows.outputs.artifact_path || steps.package_unix.outputs.artifact_path }}
+          path: ${{ steps.package_unix.outputs.artifact_path }}
+          retention-days: 14
+
+      - name: Upload Artifact (Windows)
+        if: ${{ matrix.os_name == 'windows' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os_name }}-${{ matrix.arch_name }}-${{ matrix.target }}
+          path: ${{ steps.package_windows.outputs.artifact_path }}
           retention-days: 14
 
       - name: Write Job Summary (Unix)
@@ -217,7 +226,7 @@ jobs:
           OS_NAME: ${{ matrix.os_name }}
           ARCH_NAME: ${{ matrix.arch_name }}
           TARGET: ${{ matrix.target }}
-          ARTIFACT_NAME: ${{ matrix.os_name == 'windows' && steps.package_windows.outputs.artifact_name || steps.package_unix.outputs.artifact_name }}
+          ARTIFACT_NAME: ${{ steps.package_unix.outputs.artifact_name }}
         run: |
           {
             echo "## Built Binary"
@@ -236,22 +245,20 @@ jobs:
           OS_NAME: ${{ matrix.os_name }}
           ARCH_NAME: ${{ matrix.arch_name }}
           TARGET: ${{ matrix.target }}
-          ARTIFACT_NAME: ${{ matrix.os_name == 'windows' && steps.package_windows.outputs.artifact_name || steps.package_unix.outputs.artifact_name }}
+          ARTIFACT_NAME: ${{ steps.package_windows.outputs.artifact_name }}
         run: |
-          @(
-            "## Built Binary"
-            ""
-            "- OS: ``$($env:OS_NAME)``"
-            "- Arch: ``$($env:ARCH_NAME)``"
-            "- Target: ``$($env:TARGET)``"
-            "- Artifact: ``$($env:ARTIFACT_NAME)``"
-            "- Cache layers: ``rust-cache + sccache``"
-          ) | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## Built Binary"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- OS: ``$($env:OS_NAME)``"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Arch: ``$($env:ARCH_NAME)``"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Target: ``$($env:TARGET)``"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Artifact: ``$($env:ARTIFACT_NAME)``"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Cache layers: ``rust-cache + sccache``"
 
       - name: Show sccache Stats (Unix)
         if: ${{ always() && matrix.os_name != 'windows' }}
         shell: bash
-        run: "${SCCACHE_PATH:-sccache}" --show-stats || true
+        run: '${SCCACHE_PATH:-sccache} --show-stats || true'
 
       - name: Show sccache Stats (Windows)
         if: ${{ always() && matrix.os_name == 'windows' }}
