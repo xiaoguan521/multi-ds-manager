@@ -12,6 +12,7 @@ This document captures the Stage G productionization baseline for `multi-ds-mana
 - Config environment variable expansion via `${VAR}` and `${VAR:-default}`
 - Native bridge path override via `MULTI_DS_NATIVE_BRIDGE_SCRIPT`
 - GitHub Actions multi-arch image workflow for GHCR
+- GitHub Actions multi-platform binary artifact workflow
 
 ## Runtime Environment Variables
 
@@ -84,6 +85,50 @@ Manual trigger:
 ```text
 Actions -> docker-image -> Run workflow
 ```
+
+## GitHub Actions Binary Build
+
+Workflow:
+
+- `.github/workflows/binary-artifacts.yml`
+
+Behavior:
+
+- builds native executables for Linux, Windows, and macOS
+- each platform covers `x86_64` and `arm64`
+- every run uploads downloadable workflow artifacts
+- tag builds additionally upload archives to the matching GitHub Release
+- build jobs reuse both Cargo cache and `sccache` compiler cache
+
+Current target matrix:
+
+- `x86_64-unknown-linux-gnu`
+- `aarch64-unknown-linux-gnu`
+- `x86_64-pc-windows-msvc`
+- `aarch64-pc-windows-msvc`
+- `x86_64-apple-darwin`
+- `aarch64-apple-darwin`
+
+Runner matrix:
+
+- `ubuntu-24.04`
+- `ubuntu-24.04-arm`
+- `windows-2025`
+- `windows-11-arm`
+- `macos-15-intel`
+- `macos-15`
+
+Artifact contents:
+
+- compiled executable
+- `config.example.yaml`
+- `README.md`
+
+Cache strategy:
+
+- `Swatinem/rust-cache@v2` restores Cargo registry and target outputs per target triple
+- `mozilla-actions/sccache-action@v0.0.9` reuses compiler outputs across repeated native builds
+- `CARGO_INCREMENTAL=0` is enabled so `sccache` hit rate is better on CI
 
 ## Docker Run
 

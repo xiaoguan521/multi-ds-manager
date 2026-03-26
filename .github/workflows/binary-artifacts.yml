@@ -1,0 +1,308 @@
+name: binary-artifacts
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - "codex/**"
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: binary-artifacts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version_label: ${{ steps.vars.outputs.version_label }}
+      release_upload: ${{ steps.vars.outputs.release_upload }}
+    steps:
+      - name: Compute Artifact Version Label
+        id: vars
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA::12}"
+
+          slugify() {
+            echo "$1" \
+              | tr '[:upper:]' '[:lower:]' \
+              | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//'
+          }
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            version_label="pr-${PR_NUMBER}-sha-${short_sha}"
+            release_upload="false"
+          elif [[ "$REF_TYPE" == "tag" ]]; then
+            version_label="$(slugify "$REF_NAME")"
+            release_upload="true"
+          else
+            version_label="$(slugify "$REF_NAME")-sha-${short_sha}"
+            release_upload="false"
+          fi
+
+          {
+            echo "version_label=$version_label"
+            echo "release_upload=$release_upload"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write Job Summary
+        shell: bash
+        env:
+          VERSION_LABEL: ${{ steps.vars.outputs.version_label }}
+          RELEASE_UPLOAD: ${{ steps.vars.outputs.release_upload }}
+        run: |
+          {
+            echo "## Binary Build Plan"
+            echo
+            echo "- Version label: \`${VERSION_LABEL}\`"
+            echo "- Upload release assets: \`${RELEASE_UPLOAD}\`"
+            echo "- Target matrix:"
+            echo "  - Linux x86_64"
+            echo "  - Linux arm64"
+            echo "  - Windows x86_64"
+            echo "  - Windows arm64"
+            echo "  - macOS x86_64"
+            echo "  - macOS arm64"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: prepare
+    env:
+      CARGO_INCREMENTAL: "0"
+      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_IDLE_TIMEOUT: "0"
+      SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
+      RUSTC_WRAPPER: sccache
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: linux
+            arch_name: x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            archive_ext: tar.gz
+          - os_name: linux
+            arch_name: arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            archive_ext: tar.gz
+          - os_name: windows
+            arch_name: x86_64
+            runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+          - os_name: windows
+            arch_name: arm64
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            archive_ext: zip
+          - os_name: macos
+            arch_name: x86_64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            archive_ext: tar.gz
+          - os_name: macos
+            arch_name: arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Set Up sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Cache Rust Artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: binary-artifacts-${{ matrix.target }}
+          cache-on-failure: true
+
+      - name: Build Binary (Unix)
+        if: matrix.os_name != 'windows'
+        shell: bash
+        run: cargo build --release --locked --target "${{ matrix.target }}"
+
+      - name: Build Binary (Windows)
+        if: matrix.os_name == 'windows'
+        shell: pwsh
+        run: cargo build --release --locked --target "${{ matrix.target }}"
+
+      - name: Package Artifact (Unix)
+        if: matrix.os_name != 'windows'
+        id: package_unix
+        shell: bash
+        env:
+          VERSION_LABEL: ${{ needs.prepare.outputs.version_label }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+
+          package_base="multi-ds-manager-${VERSION_LABEL}-${TARGET}"
+          package_dir="dist/${package_base}"
+          mkdir -p "$package_dir"
+
+          cp "target/${TARGET}/release/multi-ds-manager" "${package_dir}/multi-ds-manager"
+          cp "config.example.yaml" "${package_dir}/config.example.yaml"
+          cp "README.md" "${package_dir}/README.md"
+
+          archive_path="dist/${package_base}.tar.gz"
+          tar -C dist -czf "$archive_path" "$package_base"
+
+          {
+            echo "artifact_path=$archive_path"
+            echo "artifact_name=${package_base}.tar.gz"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Package Artifact (Windows)
+        if: matrix.os_name == 'windows'
+        id: package_windows
+        shell: pwsh
+        env:
+          VERSION_LABEL: ${{ needs.prepare.outputs.version_label }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          $packageBase = "multi-ds-manager-$env:VERSION_LABEL-$env:TARGET"
+          $packageDir = Join-Path "dist" $packageBase
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+
+          Copy-Item "target/$env:TARGET/release/multi-ds-manager.exe" "$packageDir/multi-ds-manager.exe"
+          Copy-Item "config.example.yaml" "$packageDir/config.example.yaml"
+          Copy-Item "README.md" "$packageDir/README.md"
+
+          $archivePath = Join-Path "dist" "$packageBase.zip"
+          if (Test-Path $archivePath) {
+              Remove-Item $archivePath -Force
+          }
+
+          Compress-Archive -Path "$packageDir/*" -DestinationPath $archivePath -Force
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "artifact_path=$archivePath"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "artifact_name=$packageBase.zip"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os_name }}-${{ matrix.arch_name }}-${{ matrix.target }}
+          path: ${{ matrix.os_name == 'windows' && steps.package_windows.outputs.artifact_path || steps.package_unix.outputs.artifact_path }}
+          retention-days: 14
+
+      - name: Write Job Summary (Unix)
+        if: matrix.os_name != 'windows'
+        shell: bash
+        env:
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH_NAME: ${{ matrix.arch_name }}
+          TARGET: ${{ matrix.target }}
+          ARTIFACT_NAME: ${{ matrix.os_name == 'windows' && steps.package_windows.outputs.artifact_name || steps.package_unix.outputs.artifact_name }}
+        run: |
+          {
+            echo "## Built Binary"
+            echo
+            echo "- OS: \`${OS_NAME}\`"
+            echo "- Arch: \`${ARCH_NAME}\`"
+            echo "- Target: \`${TARGET}\`"
+            echo "- Artifact: \`${ARTIFACT_NAME}\`"
+            echo "- Cache layers: \`rust-cache + sccache\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write Job Summary (Windows)
+        if: matrix.os_name == 'windows'
+        shell: pwsh
+        env:
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH_NAME: ${{ matrix.arch_name }}
+          TARGET: ${{ matrix.target }}
+          ARTIFACT_NAME: ${{ matrix.os_name == 'windows' && steps.package_windows.outputs.artifact_name || steps.package_unix.outputs.artifact_name }}
+        run: |
+          @(
+            "## Built Binary"
+            ""
+            "- OS: ``$($env:OS_NAME)``"
+            "- Arch: ``$($env:ARCH_NAME)``"
+            "- Target: ``$($env:TARGET)``"
+            "- Artifact: ``$($env:ARTIFACT_NAME)``"
+            "- Cache layers: ``rust-cache + sccache``"
+          ) | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+      - name: Show sccache Stats (Unix)
+        if: always() && matrix.os_name != 'windows'
+        shell: bash
+        run: "${SCCACHE_PATH:-sccache}" --show-stats || true
+
+      - name: Show sccache Stats (Windows)
+        if: always() && matrix.os_name == 'windows'
+        shell: pwsh
+        run: |
+          $sccache = if ($env:SCCACHE_PATH) { $env:SCCACHE_PATH } else { "sccache" }
+          & $sccache --show-stats
+
+  release-assets:
+    needs:
+      - prepare
+      - build
+    if: needs.prepare.outputs.release_upload == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download All Binary Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Upload Assets To GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes "" || true
+          fi
+
+          mapfile -t files < <(find dist -type f \( -name '*.zip' -o -name '*.tar.gz' \) | sort)
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No binary artifacts found to upload."
+            exit 1
+          fi
+
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+
+      - name: Write Release Summary
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          {
+            echo "## Release Assets Uploaded"
+            echo
+            echo "- Release tag: \`${RELEASE_TAG}\`"
+            echo "- Uploaded archives for Linux / Windows / macOS on x86_64 and arm64."
+          } >> "$GITHUB_STEP_SUMMARY"

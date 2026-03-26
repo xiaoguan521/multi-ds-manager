@@ -75,6 +75,7 @@
     - `MULTI_DS_CONFIG` 配置路径覆盖
     - 配置文件环境变量展开与 Secret 注入
     - GitHub Actions 多架构镜像构建
+    - GitHub Actions 多平台可执行文件构建
     - Release 自动回填镜像地址
     - 部署与运维文档
 
@@ -818,6 +819,7 @@ monitoring:
   - 配置文件环境变量展开与 Secret 注入
   - 原生桥接脚本路径与 Python 命令可配置
   - GitHub Actions 原生 `amd64 / arm64` 镜像构建与 GHCR 推送
+  - GitHub Actions 原生 `Linux / Windows / macOS` 可执行文件构建与归档
   - GitHub Release 自动回填多架构镜像引用
   - 证书轮换、回滚与故障切换说明
   - 环境分层配置规范（dev / test / prod）
@@ -834,6 +836,7 @@ monitoring:
 - `docker-compose.yml`
 - `config.example.yaml`
 - `.github/workflows/docker-image.yml`
+- `.github/workflows/binary-artifacts.yml`
 - `deploy/compose/prometheus.yml`
 - `deploy/k8s/deployment.yaml`
 - `deploy/k8s/service.yaml`
@@ -847,8 +850,11 @@ monitoring:
 - 阶段 G 基线已完成，当前项目已具备容器化、Compose、本地可观测联调和 Kubernetes 示例部署能力
 - 部署文件默认采用“配置结构进镜像 / 敏感值走环境变量或 Secret”的方式，避免本地 `config.yaml` 被直接打进镜像
 - GitHub Actions 已补齐原生 `amd64 / arm64` runner 的镜像构建与多架构 manifest 发布链路
+- GitHub Actions 已补齐 `Linux / Windows / macOS` 的 `x86_64 / arm64` 可执行文件构建链路
+- 可执行文件流水线已补充 `rust-cache + sccache` 双层缓存，后续重复构建会明显快于首轮冷启动
 - 镜像流水线已补充 `cargo-chef + GHCR buildcache-*` 缓存策略，后续构建速度会明显优于首轮冷启动
 - 版本 tag 发布时会自动创建或更新对应 GitHub Release，并回填可直接使用的 GHCR 镜像地址
+- 版本 tag 发布时会同时上传各平台二进制压缩包到 GitHub Release
 - Docker 运行时已改为 Python 虚拟环境安装 `oracledb`，兼容 Debian Bookworm 的 PEP 668 限制
 - Oracle native bridge 已通过镜像内置 `oracledb` 提供基础支撑，DM native bridge 仍建议在目标环境制作定制镜像补齐 `dmPython`
 
@@ -859,6 +865,7 @@ monitoring:
 - `docker-compose.yml`
 - `config.example.yaml`
 - `.github/workflows/docker-image.yml`
+- `.github/workflows/binary-artifacts.yml`
 - `deploy/k8s/deployment.yaml`
 - `deploy/k8s/service.yaml`
 - `deploy/k8s/configmap.yaml`
@@ -891,6 +898,7 @@ ghcr.io/<owner>/<repo>:vX.Y.Z
 - `config.example.yaml` 与 `deploy/k8s/configmap.yaml` 支持 `${VAR}` / `${VAR:-default}` 形式的环境变量展开
 - `.dockerignore` 已明确排除本地 `config.yaml`，避免把真实连接串和凭据打入镜像
 - `.github/workflows/docker-image.yml` 使用 GitHub 原生 `ubuntu-24.04` 与 `ubuntu-24.04-arm` runner 分别构建 `amd64 / arm64` 镜像，再发布合并后的多架构 tag
+- `.github/workflows/binary-artifacts.yml` 使用 GitHub 原生 `Linux / Windows / macOS` runner 构建 `x86_64 / arm64` 可执行文件，并在 tag 时上传到 GitHub Release
 - 推送 `v*` tag 时，workflow 会自动创建或更新同名 GitHub Release，并把镜像地址写回 Release 正文
 - 更详细的部署与运维说明见 `docs/deployment.md` 与 `docs/operations.md`
 
@@ -921,6 +929,7 @@ multi-ds-manager/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml
+│       ├── binary-artifacts.yml
 │       └── docker-image.yml
 ├── Cargo.toml
 ├── Cargo.lock

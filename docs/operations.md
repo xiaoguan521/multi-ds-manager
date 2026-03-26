@@ -14,12 +14,13 @@ Recommended layering:
 
 1. Run `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test`.
 2. Trigger or wait for the `docker-image` GitHub Actions workflow.
-3. Deploy to test.
-4. Verify `grpc.health.v1.Health`.
-5. Verify `/metrics`.
-6. Run the gRPC smoke script against at least one real `jgbh`.
-7. Confirm audit events are written.
-8. If this is a tag release, verify the GitHub Release body contains the published GHCR image references.
+3. Trigger or wait for the `binary-artifacts` GitHub Actions workflow.
+4. Deploy to test.
+5. Verify `grpc.health.v1.Health`.
+6. Verify `/metrics`.
+7. Run the gRPC smoke script against at least one real `jgbh`.
+8. Confirm audit events are written.
+9. If this is a tag release, verify the GitHub Release body contains the published GHCR image references and binary archives.
 
 Recommended image promotion inputs:
 
