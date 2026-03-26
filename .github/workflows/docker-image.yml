@@ -169,17 +169,23 @@ jobs:
               arch_tags+=("${IMAGE}:${tag}-${ARCH}")
             fi
           done
+          cache_tag="${IMAGE}:buildcache-${ARCH}"
 
           if [[ ${#arch_tags[@]} -eq 0 ]]; then
             echo "No image tags were generated."
             exit 1
           fi
 
+          docker pull "$cache_tag" || true
+
           docker build --pull \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            --cache-from "$cache_tag" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --label "org.opencontainers.image.version=${PRIMARY_TAG}" \
             -t "${arch_tags[0]}" \
+            -t "$cache_tag" \
             .
 
           for tag in "${arch_tags[@]:1}"; do
@@ -189,6 +195,7 @@ jobs:
           docker run --rm "${arch_tags[0]}" --help > /dev/null
 
           if [[ "$PUSH_IMAGE" == "true" ]]; then
+            docker push "$cache_tag"
             for tag in "${arch_tags[@]}"; do
               docker push "$tag"
             done
@@ -199,6 +206,7 @@ jobs:
             echo
             echo "- Runner architecture: \`${ARCH}\`"
             echo "- Verification: \`docker run --rm ${arch_tags[0]} --help\`"
+            echo "- Registry cache tag: \`${cache_tag}\`"
             echo
             echo "### Architecture Tags"
             printf '%s\n' "${arch_tags[@]}" | sed 's/^/- `/' | sed 's/$/`/'

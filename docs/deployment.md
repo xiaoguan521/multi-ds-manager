@@ -56,13 +56,21 @@ Behavior:
 - branch, tag, and manual builds publish to `ghcr.io/<owner>/<repo>`
 - pull requests only build-verify the image and do not push
 - tag builds create or update the matching GitHub Release with published image references
+- image builds reuse per-architecture registry cache tags from GHCR
 
 Published tag pattern:
 
 - branch push: `main`, `sha-<12位提交>`, default branch additionally publishes `latest`
 - tag push: `v1.2.3`, `1.2.3`, `sha-<12位提交>`
 - architecture-specific staging tags: `:<tag>-amd64` and `:<tag>-arm64`
+- per-architecture cache tags: `:buildcache-amd64` and `:buildcache-arm64`
 - final multi-arch manifest tag: `:<tag>`
+
+Cache strategy:
+
+- Docker workflow pulls `ghcr.io/<owner>/<repo>:buildcache-amd64` or `:buildcache-arm64`
+- Dockerfile uses `cargo-chef` to separate Rust dependency cooking from final application compile
+- successful push builds refresh the matching `buildcache-*` tag for the next run
 
 Prerequisites:
 

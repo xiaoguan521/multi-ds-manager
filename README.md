@@ -847,6 +847,7 @@ monitoring:
 - 阶段 G 基线已完成，当前项目已具备容器化、Compose、本地可观测联调和 Kubernetes 示例部署能力
 - 部署文件默认采用“配置结构进镜像 / 敏感值走环境变量或 Secret”的方式，避免本地 `config.yaml` 被直接打进镜像
 - GitHub Actions 已补齐原生 `amd64 / arm64` runner 的镜像构建与多架构 manifest 发布链路
+- 镜像流水线已补充 `cargo-chef + GHCR buildcache-*` 缓存策略，后续构建速度会明显优于首轮冷启动
 - 版本 tag 发布时会自动创建或更新对应 GitHub Release，并回填可直接使用的 GHCR 镜像地址
 - Docker 运行时已改为 Python 虚拟环境安装 `oracledb`，兼容 Debian Bookworm 的 PEP 668 限制
 - Oracle native bridge 已通过镜像内置 `oracledb` 提供基础支撑，DM native bridge 仍建议在目标环境制作定制镜像补齐 `dmPython`

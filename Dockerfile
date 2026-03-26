@@ -1,12 +1,28 @@
 # syntax=docker/dockerfile:1.7
 
-FROM rust:1.89-bookworm AS builder
+FROM rust:1.89-bookworm AS chef
 
 WORKDIR /build
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates \
+    && cargo install cargo-chef --locked \
     && rm -rf /var/lib/apt/lists/*
+
+FROM chef AS planner
+
+COPY Cargo.toml Cargo.lock build.rs ./
+COPY proto ./proto
+COPY scripts ./scripts
+COPY src ./src
+
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+
+COPY --from=planner /build/recipe.json recipe.json
+
+RUN cargo chef cook --release --recipe-path recipe.json
 
 COPY Cargo.toml Cargo.lock build.rs ./
 COPY proto ./proto
